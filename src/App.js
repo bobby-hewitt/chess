@@ -13,6 +13,7 @@ class App extends Component {
       layout: data,
       selected: null,
       turn: 'white',
+      available: [],
       canCastle: {
         black: {
           queen: true,
@@ -25,266 +26,286 @@ class App extends Component {
       }
     }
   }
+  //helpers
+  isValidCoord(layout, coords){
+   
+    return layout[coords.y] && layout[coords.y][coords.x]
+  }
 
+  isOwnPiece(layout, coords){
+    
+    const { turn } = this.state
+    return layout[coords.y][coords.x].color === turn 
+  }
+
+  isOpponentPiece(layout, coords){
+    
+    const { turn } = this.state
+    return layout[coords.y][coords.x].color && layout[coords.y][coords.x].color !== turn 
+  }
+
+  formatCoord(coords){
+    return coords.x + ' ' + coords.y
+  }
+
+  checkObsruction(layout, coord, callback){
+    // this function takes a callback which adds cordinate to possible moves
+    // a FALSE return should break the loop
+    if (this.isValidCoord(layout, coord)){
+      if (this.isOwnPiece(layout, coord)){
+        return false
+      } else if(this.isOpponentPiece(layout, coord)){
+        callback(this.formatCoord(coord))
+        return false
+      } else {
+        callback(this.formatCoord(coord))
+        return true
+      }
+    } else {
+      // console.log('FOUND INVALID COORD, should optimise')
+    }
+  }
+
+  //player action
   onSelectSquare(x,y){
-    const { selected, layout, turn } = this.state  
+    const { selected, layout, turn, available } = this.state  
     if (selected){
-      this.checkMove(x,y)
+      if (available.indexOf(this.formatCoord({x,y})) > -1){
+        this.takeMove(layout[selected.y][selected.x], x,y)
+      } else {
+        this.setState({selected: null, available:[]})
+      }
       return
     }
     //check piece is correct color
-    const state = 
-      layout[y][x].color === turn ? {x, y} : 
-      null
-      console.log(state)
-      this.setState({selected: state})
+    const selectedSquare = layout[y][x].color === turn ? {x, y} : null
+    if (selectedSquare){
+      this.checkAvailableMoves(layout, selectedSquare).then((available) => {
+        this.setState({selected: selectedSquare, available})
+      })
+    }
+    // this.setState({selected: state})
   }
 
-  checkMove(x,y){
-    const { layout, selected, turn } = this.state
-    const piece = layout[selected.y][selected.x]
-    //if your own piece is at the destination then deselect
-    if (layout[y][x].color === turn){
-      return this.setState({selected: null})
-    }
-    //otherwise follow piece specific logic
-    switch(piece.type){
-      case 'knight':
-        this.knight(piece, x,y)
-      case 'pawn':
-        this.pawn(piece, x,y)
-      return
-      case 'rook':
-        this.rook(piece, x,y)
-      case 'bishop':
-        this.bishop(piece, x,y)
-      case 'queen':
-        this.queen(piece, x,y)
-      case 'king':
-        this.king(piece, x,y)
-      default:
-      return
-    }
-  }
-
-  king(piece, x, y){
-    const { layout, selected, turn, canCastle } = this.state
-    let diffX = x - selected.x 
-    if (diffX < 0) diffX *= -1
-    let diffY = y - selected.y 
-    if (diffY < 0) diffY *= -1
-
-    if (diffX < 2 && diffY < 2 && !(diffX=== 0 && diffY === 0)){
-      console.log('can move')
-      this.updateCanCastle(turn)
-      this.takeMove(piece, x, y)
-    } else if (diffX === 2){
-      let target = selected.x - x < 0 ? 'queen' : 'king'
-      if (canCastle[turn][target]){
-        //castletime
-        const rookPosition =  {y: selected.y, x: target === 'queen' ? 7 : 0}
-        this.checkCastle(piece, selected, {x,y}, target === 'queen' ? 7 : 0)
-      }
-    }
-  }
-
-
-  queen(piece, x, y){
-    console.log('moving queen')
-    const { layout, selected } = this.state 
-    if (selected.x === x){
-      this.checkNoPiecesInWayStraight(piece, selected, {x, y}, 'y')
-    } else if ( selected.y === y){
-      this.checkNoPiecesInWayStraight(piece, selected, {x, y}, 'x')
-    } else {
-      let diffX = selected.x - x 
-      if (diffX < 0) diffX *= -1
-      let diffY = selected.y - y 
-      if (diffY < 0) diffY *= -1
-      if (diffX === diffY){
-        this.checkNoPiecesInWayDiagonal(piece, selected, {x, y})
-      } else {
-        this.setState({selected: null})
-      }
-
-      }
-  }
-   knight(piece, x,y){
-    const { selected } = this.state
-    const correct = 
-      ((selected.x - x === 2 || selected.x - x === -2) && (selected.y - y === 1 || selected.y - y === -1))||
-      ((selected.y - y === 2 || selected.y - y === -2) && (selected.x - x === 1 || selected.x - x === -1))
-    if (correct){
-      this.takeMove(piece, x, y)
-    }
-  }
-
-  bishop(piece, x, y){
-    const { selected } = this.state
-    let diffX = selected.x - x 
-    if (diffX < 0) diffX *= -1
-    let diffY = selected.y - y 
-    if (diffY < 0) diffY *= -1
-    if (diffX === diffY){
-      this.checkNoPiecesInWayDiagonal(piece, selected, {x, y})
-    } else {
-      this.setState({selected: null})
-    }
-  }
-
-  rook(piece, x, y){
-    const { selected } = this.state
-    if (selected.x === x){
-      this.checkNoPiecesInWayStraight(piece, selected, {x, y}, 'y')
-    } else if ( selected.y === y){
-      this.checkNoPiecesInWayStraight(piece, selected, {x, y}, 'x')
-    }
-  }
-
-  pawn(piece, x, y){
-    const { layout, selected, turn } = this.state
-    const dir = piece.color === 'white' ? +1 : -1
-    if (
-      //going into another color
-      (layout[y][x].color && layout[y][x].color !== piece.color) && 
-      // 1 to the left or right
-      (x === selected.x + 1 || x === selected.x -1) && 
-      // 1 ahead
-      (y === selected.y + dir) 
-    ) {
-      this.takeMove(piece, x, y)
-      //logic for pawn taking 
-      console.log('Pawn is taking another piece')
-    } else if (selected.x === x && ((piece.color === 'black' && selected.y === 1 && y === 3 ) || (piece.color === 'white' && selected.y === 6 && y === 4))){
-      this.takeMove(piece, x, y)
-      //logic for 2
-    } else if ((piece.color === 'black' && y === selected.y + 1) || (piece.color === 'white' && y === selected.y - 1)) {
-      //logic for one move
-      this.takeMove(piece, x, y)
-    }
-  }
-
-
-  // is the path clear?
-  checkNoPiecesInWayDiagonal(piece, origin, destination){
-    const { layout } = this.state;
-    const dirX = origin.x - destination.x < 0 ? 1 : -1;
-    const dirY = origin.y - destination.y < 0 ? 1 : -1;
-    //this is how many spaces to check
-    let diff = origin.x - destination.x 
-    if (diff < 0){
-      diff *= -1
-    }
-    for (var i = 1; i < diff; i++){
-      const testX = (origin.x + dirX * i)
-      const testY = (origin.y + dirY * i)
-      // console.log('Y', origin.y, (origin.y + dirY * i), 'x', origin.x,(origin.x + dirX * i))
-      if (layout[testY][testX].color){
-        this.setState({selected: null})
-        return
-      }
-    }
-    this.takeMove(piece, destination.x, destination.y)
-  }
-  checkNoPiecesInWayStraight(piece, origin, destination, axisToCheck ){
-    const { layout, turn } = this.state
-    let destinationIsGreaterThanOrigin = destination[axisToCheck] - origin[axisToCheck]  > 0 ? true : false
-    let startI = destinationIsGreaterThanOrigin ? origin[axisToCheck] : destination[axisToCheck]
-    let endI = destinationIsGreaterThanOrigin ? destination[axisToCheck] : origin[axisToCheck] 
-      for (var i = startI + 1; i <endI; i++){
-        console.log(layout[axisToCheck === 'y' ? i : origin.y][axisToCheck === 'x' ? i : origin.x])
-        if (layout[axisToCheck === 'y' ? i : origin.y][axisToCheck === 'x' ? i : origin.x].color){
-          this.setState({selected: null})
+  checkAvailableMoves(layout, selected){
+    return new Promise((resolve, reject) => {
+      const piece = layout[selected.y][selected.x]
+      var available = []
+      switch(piece.type){
+        case 'knight':
+          available = this.knightAvailable(layout, selected)
+          break
+        case 'pawn':
+          available = this.pawnAvailable(layout, selected, piece.color)
+          break
+        case 'rook':
+          available = this.straightAvailable(layout, selected)
+          break
+        case 'bishop':
+          available = this.diagonalAvailable(layout, selected)
+          break
+        case 'queen':
+          console.log('looking for queenueen', selected)
+          available = this.diagonalAvailable(layout, selected).concat(this.straightAvailable(layout, selected))
+          break
+        case 'king':
+          available = this.kingAvailable(layout, selected)
+          break
+        default:
           return
-        } 
       }
-      if (piece.type === 'rook'){
-        this.updateCanCastle(turn, origin)
+      console.log(piece, available)
+      resolve(available)
+    })  
+  }
+
+  diagonalAvailable(layout, selected){ 
+      const { x, y } = selected 
+      var availableCoords = []
+      function addCoord(coord){
+        availableCoords.push(coord)
+      }  
+      for (let i = x + 1; i < 8; i++){
+          if(!this.checkObsruction(layout, {x:i, y: y + (i -x) },addCoord)) break
       }
-      this.takeMove(piece, destination.x, destination.y)
+      for (let i = x + 1; i < 8; i++){
+         if(!this.checkObsruction(layout, {x:i, y: y - (i -x) },addCoord)) break
+      }
+      for (let i = x - 1; i > -1; i--){
+        if(!this.checkObsruction(layout, {x:i, y: y - (i -x) },addCoord)) break
+      }
+      for (let i = x - 1; i > -1; i--){
+        if(!this.checkObsruction(layout, {x:i, y: y + (i -x) },addCoord)) break
+      }
+      return availableCoords
   }
 
 
 
-  //special castling functions
-  checkCastle(piece, origin, destination, rookPosition){
-    const axisToCheck = 'x'
-    const { layout, turn } = this.state
-    let destinationIsGreaterThanOrigin = destination[axisToCheck] - origin[axisToCheck]  > 0 ? true : false
-    let startI = destinationIsGreaterThanOrigin ? origin[axisToCheck] : destination[axisToCheck]
-    let endI = destinationIsGreaterThanOrigin ? destination[axisToCheck] : origin[axisToCheck] 
-      for (var i = startI + 1; i <endI; i++){
-        console.log(layout[axisToCheck === 'y' ? i : origin.y][axisToCheck === 'x' ? i : origin.x])
-        if (layout[axisToCheck === 'y' ? i : origin.y][axisToCheck === 'x' ? i : origin.x].color){
-          this.setState({selected: null})
-          return
-        } 
+  straightAvailable(layout, selected){ 
+      const { x, y } = selected 
+
+      var availableCoords = []
+
+      function addCoord(coord){
+        availableCoords.push(coord)
       }
-      // if (piece.type === 'rook'){
-      //   this.updateCanCastle(turn, origin)
-      // }
-      this.castle(piece, origin, destination, rookPosition)
-      // this.takeMove(piece, destination.x, destination.y)
+      
+      for (let i = x + 1; i < 8; i++){
+          if(!this.checkObsruction(layout, {x:i, y: y },addCoord)) break
+      }
+      for (let i = x - 1; i > -1; i--){
+        if(!this.checkObsruction(layout, {x:i, y: y},addCoord)) break
+      }
+      for (let i = y + 1; i < 8; i++){
+         if(!this.checkObsruction(layout, {x:x, y: i},addCoord)) break
+      }
+      for (let i = y - 1; i > -1; i--){
+        if(!this.checkObsruction(layout, {x:x, y: i },addCoord)) break
+      }
+      return availableCoords
   }
-  updateCanCastle(turn, rookCoords){
-    let canCastle = this.state.canCastle
-    if (!rookCoords){
-      canCastle[turn] = {
-        king:false,
-        queen: false
-      }
+
+  knightAvailable(layout, selected){
+    const { x, y } = selected 
+    var availableCoords = []
+
+    function addCoord(coord){
+      availableCoords.push(coord)
+    }   
+    //all possible moves of a knight
+    var allDirs = [
+      {x: x-1, y: y+2},
+      {x: x-1, y: y-2},
+      {x: x-2, y: y-1},
+      {x: x-2, y: y+1},
+      {x: x+1, y: y+2},
+      {x: x+1, y: y-2},
+      {x: x+2, y: y-1},
+      {x: x+2, y: y+1},
+    ]
+    //find available moves considering position and state of the board
+    for (var i = 0; i < allDirs.length; i++){
+      this.checkObsruction(layout, allDirs[i],addCoord)
     }
-    else{
-      let target;
-      if (rookCoords.x === 7) target = 'queen'
-      else target = 'king'
-      canCastle[turn][target] = false 
-    }
-    this.setState({canCastle})
+    return availableCoords
   }
 
-  castle(piece, origin, destination, rookPosition){
-    const { turn } = this.state
-    const newLayout = Object.assign([], this.state.layout);
-    //move king
-    newLayout[origin.y][origin.x] = {};
-    newLayout[destination.y][destination.x] = piece;
-    //move rook
-    console.log('rook position', rookPosition, destination)
-    newLayout[origin.y][rookPosition] = {};
-    let newRookPosition = rookPosition ? 4 : 2;
-    newLayout[origin.y][newRookPosition] = {
-      type: 'rook',
-      color: turn
-    }
-    this.updateCanCastle(turn)
-    const nextTurn = turn === 'white' ? 'black' : 'white'
-    this.setState({layout: newLayout, selected: null, turn: nextTurn})
+  kingAvailable(selected){ 
+    const { x, y } = selected 
+      var availableCoords = []
+      
+      function addCoord(coord){
+        availableCoords.push(coord)
+      }
+
+      const allDirs = [
+        {x: x-1, y: y-1},
+        {x: x-1, y: y},
+        {x: x-1, y: y+1},
+        {x: x, y: y+1},
+        {x: x, y: y-1},
+        {x: x+1, y: y-1},
+        {x: x+1, y: y},
+        {x: x+1, y: y+1},
+      ]
+
+      for (var i = 0; i < allDirs.length; i++){
+        this.checkObsruction(allDirs[i],addCoord)
+      }
+      return availableCoords
   }
-  //global
+
+  pawnAvailable(layout, selected, color, checkingCheck){
+    const { x, y } = selected
+    const dir = color === 'white' ? -1 : +1
+    const oppositeColor = color === 'white' ? 'black' : 'white'
+    
+    let availableCoords = []
+
+    if (!checkingCheck && layout[y + dir] && !layout[y + dir][x].color){
+      availableCoords.push(this.formatCoord({x:x, y: y + dir}))  
+      //handles first go
+      if (((color === 'white' && y === 6) || (color === 'black' && y ===1)) && !layout[y + (dir * 2)][x].color){
+        
+        availableCoords.push(this.formatCoord({x:x, y: y + (dir * 2)}))
+      } 
+    }
+    //logic for diagonal taking
+    if (layout[y + dir] && layout[y + dir][x-1] && layout[y + dir][x-1].color === oppositeColor){
+      availableCoords.push(this.formatCoord({x:x-1, y: y + dir}))
+    }
+    if (layout[y + dir] && layout[y + dir][x+1] && layout[y + dir][x+1].color === oppositeColor){
+      availableCoords.push(this.formatCoord({x:x+1, y: y + dir}))
+    }
+    //TODO 
+    // Handle upgrading of pawn if it reaches the highest rank
+    //handle En passant
+    return availableCoords
+  }
+
+
   takeMove(piece, x, y){
       const { selected, turn } = this.state
-      this.checkCheck((moveIsValid) => {
-        if (moveIsValid){
-          const newLayout = Object.assign([], this.state.layout);
-          newLayout[selected.y][selected.x] = {};
-          newLayout[y][x] = piece;
-          const nextTurn = turn === 'white' ? 'black' : 'white'
-          this.setState({layout: newLayout, selected: null, turn: nextTurn})
-        } else {
-          this.setState({selected: null})
+      const newLayout = Object.assign([], this.state.layout);
+      newLayout[selected.y][selected.x] = {};
+      newLayout[y][x] = piece;
+      const nextTurn = turn === 'white' ? 'black' : 'white'
+      this.checkCheck(newLayout, turn, nextTurn).then((isCheck) => {
+        if (!isCheck){
+          
+       
+        this.setState({layout: newLayout, selected: null, turn: nextTurn, available: []})          
         }
-      })     
+      })
+      
   }
 
-  findOpponenetPieces(){
-    const { turn, layout } = this.state
+  findKing(layout, color){
+    for (var i = 0; i < layout.length; i++){
+        for (var j = 0; j < layout[i].length; j++){
+          if (layout[i][j] && layout[i][j].color === color && layout[i][j].type === 'king'){
+              return this.formatCoord({y: i, x: j})
+          }
+        }
+      }
+  }
+
+  checkCheck(layout, turn, nextTurn){
+    
+    return new Promise((resolve, reject) => {
+      var isCheck = false
+      let kingPos = this.findKing(layout, turn)
+      let pieces = this.findOpponenetPieces(layout, nextTurn)
+      let promises = []
+      for (var i = 0; i < pieces.length; i++){
+        promises.push(this.checkAvailableMoves(layout, pieces[i]))
+      }
+      Promise.all(promises).then((results) => {
+        console.log(results)
+        var availableMoves = []
+        for(var i = 0; i < results.length; i++){
+          availableMoves = availableMoves.concat(results[i])
+        }
+        isCheck = availableMoves.indexOf(kingPos) > -1
+        console.log(kingPos, availableMoves)
+        resolve(isCheck)
+      })
+
+      
+      
+    })
+    
+  }
+
+  findOpponenetPieces(layout, nextTurn){
     console.log(layout)
+      
       var opponentPieces = []
       for (var i = 0; i < layout.length; i++){
         for (var j = 0; j < layout[i].length; j++){
-          if (layout[i][j].color && layout[i][j].color !== turn){
-            opponentPieces.push()
+          if (layout[i][j] && layout[i][j].color === nextTurn){
+            opponentPieces.push({y:i, x:j})
           }
         }
       }
@@ -292,23 +313,15 @@ class App extends Component {
   }
 
 
-  checkCheck(callback){
-    // const {layout } = this.state
-    var pieces = this.findOpponenetPieces()
-    for (var i = 0; i < pieces.length; i++){
-
-    }
-    callback(true)
-    
-  }
 
   render(){
-    const { selected } = this.state; 
+    const { selected, available } = this.state; 
     return (
       <div className="App">
         <Board 
           layout={data}
           selected={selected}
+          available={available}
           onSelectSquare={this.onSelectSquare.bind(this)}/>    
       </div>
     );

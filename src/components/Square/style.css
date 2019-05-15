@@ -5,6 +5,8 @@
 	margin:0;
 	cursor:pointer;
 	overflow: hidden;
+	position: relative;
+	/* z-index: -2; */
 
 }
 .squareInner{
@@ -16,19 +18,34 @@
 }
 
 .square.black{
+
 	background:#919191;
 }
 .piece{
 	transition:all 0.3s ease;
 	height:30px;
 	width:auto;
+	z-index: 1;
 }
 
 .square.isSelected {
-	opacity:0.6;
+	opacity:0.6;;
+	/* transform:scale(1.5); */
 }
 .square.isSelected .piece{
 	transform:translateY(-3px);
+}
+
+.square .available{
+	pointer-events:none;
+	/* z-index: -1; */
+	position: absolute;
+	top:0;
+	left:0;
+	bottom:0;
+	right:0;
+	background:red;
+	opacity:0.4;
 }
 
 

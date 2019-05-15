@@ -3,7 +3,7 @@ function createRow(backrow, color){
 		[
 			{
 				color:color,
-				type: backrow ? 'rook' : 'pawn'
+				type: backrow ? 'rook' : 'pawn',
 			},	
 			{
 				color:color,
@@ -21,7 +21,7 @@ function createRow(backrow, color){
 			{
 				color:color,
 				type: backrow ? 'queen' : 'pawn'
-			},		
+			},	
 			{
 				color:color,
 				type: backrow ? 'bishop' : 'pawn'
@@ -30,6 +30,7 @@ function createRow(backrow, color){
 				color:color,
 				type: backrow ? 'knight' : 'pawn'
 			},	
+				
 			// {},{},{},
 			{
 				color:color,
@@ -43,12 +44,12 @@ function createRow(backrow, color){
 
 const data = [
 	createRow(true, 'black'),
-	// createRow(false, 'black'),
+	createRow(false, 'black'),
 	[{},{},{},{},{},{},{},{}],
 	[{},{},{},{},{},{},{},{}],
 	[{},{},{},{},{},{},{},{}],
 	[{},{},{},{},{},{},{},{}],
-	[{},{},{},{},{},{},{},{}],
+	// [{},{},{},{},{},{},{},{}],
 	[{},{},{},{},{},{},{},{}],
 	// createRow(false, 'white'),
 	createRow(true, 'white'),

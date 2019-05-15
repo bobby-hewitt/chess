@@ -19,6 +19,7 @@ export default class Board extends Component {
 										x={j}
 										y={i}
 										key={`${i}${j}`} 
+										isAvailable={this.props.available.indexOf(j + ' ' + i) > -1}
 										isSelected={selected && (selected.x === j && selected.y === i)} 
 										onSelectSquare={onSelectSquare}
 										isBlack={isBlack} 

@@ -6,11 +6,10 @@ export default class Square extends Component {
 
 	render(){
 		
-		const { color, x, y, type, isBlack, isSelected, onSelectSquare, isAvailable} = this.props
+		const { color, x, y, pieceType, pieceColor, isBlack, isSelected, onSelectSquare, isAvailable} = this.props
 		let className = 'square'
 		if (isBlack) className += ' black'
 		if (isSelected) {
-			console.log('is selected')
 			className += ' isSelected'
 		}
 		if (isAvailable){
@@ -25,8 +24,8 @@ export default class Square extends Component {
 						<div className="available" />
 
 					}
-					{type &&
-						 <img className="piece" src={`images/${color}/${type}.png`}/>
+					{pieceType &&
+						 <img className="piece" src={`images/${pieceColor}/${pieceType}.png`}/>
 					}
 				</div>
 			</div>

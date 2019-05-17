@@ -4,13 +4,15 @@ import './App.css';
 import Board from './components/Board'
 
 import data from './data/setup'
+import { pieceValues, squareValues } from './data/values'
 
 class App extends Component {
 
   constructor(props){
     super(props)
-
+    this.minimaxDepth = 2;
     this.state = {
+
       layout: data,
       computerColor: 'black',
       playerColor: 'white',
@@ -171,7 +173,6 @@ class App extends Component {
         }
         resolve(availableCoords)
     })
-     
   }
 
 
@@ -388,55 +389,126 @@ class App extends Component {
 
 
 
-
-
-
   //computer turn functions
-  findValidComputerMoves(){
+  findValidMoves(layout, color){
+    let selfColor = color 
+    let opponentColor = color === 'white' ? 'black' : 'white'
     return new Promise((resolve, reject) => {
-      const { computerColor, playerColor, layout } = this.state 
-      const pieces = this.findAllPiecesOfColor(layout, computerColor)
+      const pieces = this.findAllPiecesOfColor(layout, selfColor)
       this.findAllMovesForPieces(layout, pieces).then((moves) => {
-          let promises = []
-          
-          for (var i = 0; i < moves.length; i++){
-            const move = moves[i]
-            const coords = this.getCoordsFromString(move.move)
-            let newLayout = this.createUpdatedLayout(layout, move.position, coords, move.piece)
-            promises.push(this.checkCheck.call(this, newLayout, computerColor, playerColor, i))
+        let promises = []
+        for (var i = 0; i < moves.length; i++){
+          const move = moves[i]
+          const coords = this.getCoordsFromString(move.move)
+          let newLayout = this.createUpdatedLayout(layout, move.position, coords, move.piece)
+          moves[i].layout = newLayout
+          promises.push(this.checkCheck.call(this, newLayout, selfColor, opponentColor, i))
+        }
+        Promise.all(promises).then((data) => {
+          for(var i = data.length-1; i >= 0; i--){
+            // console.log(i)
+            if (data[i].isCheck){
+              console.log('isCheck')
+              moves.splice(data[i].index, 1)
+            }  
           }
-
-
-        
-          console.log(moves.length)
-          Promise.all(promises).then((data) => {
-            for(var i = data.length-1; i >= 0; i--){
-              // console.log(i)
-              if (data[i].isCheck){
-                console.log('isCheck')
-                moves.splice(data[i].index, 1)
-              }  
-            }
-            console.log(moves)
-            if (moves.length === 0){
-              //checkmate or stalemate
-              
-            } else {
-              
-              resolve(moves)
-            }
-          })
-        })  
+          if (moves.length === 0){
+            //checkmate or stalemate
+            window.alert('Checkmate :) ')
+          } else {
+            resolve(moves)
+          }
+        })
+      })  
     })
   }
 
   computerTurn(){
-    this.findValidComputerMoves()
-    .then((moves) => {
-      let moveIndex = Math.floor(Math.random() * moves.length)
-      const move = moves[moveIndex]
+    const { layout, computerColor } = this.state
+    this.simulateTurn(layout, computerColor).then((move) => {
       this.takeComputerMove(move)
     })
+  }
+
+  simulateInitialTurn(layout, color){
+    this.findValidMoves(layout, color)
+      .then((moves) => {
+        for (var i = 0; i < moves.length; i++){
+          // this.simulateTurn
+        }    
+      })
+      
+  }
+  //TODO
+  //call simulate... return all moves
+  //repeat to depth 
+  //when depth is reach return initial move score with highest lowest score
+
+
+  simulateTurn(depth, layout, color){
+    return new Promise((resolve, reject) => {
+
+      if (depth === 0){
+        //return initial move with best score
+      } else {
+        this.findValidMoves(layout, color)
+        .then((moves) => {
+          const promises = []
+          for (var i = 0; i < moves.length; i++){
+            promises.push(this.getMoveScores.call(this, moves[i], true))
+          }
+          Promise.all(promises).then((movesWithScores) => {
+            let move = this.findBestScore(movesWithScores)
+            resolve(move)
+          })      
+        })
+      }      
+    })
+    
+  }
+
+  getMoveScores(move, isComputer){
+    return new Promise((resolve, reject) => {
+      const { computerColor, playerColor } = this.state
+      const { layout } = move
+      var scores = {
+        black: 0,
+        white: 0
+      }
+
+      for (var i = 0; i < layout.length; i++){
+        for (var j = 0; j < layout[i].length; j++){
+          if (layout[i][j].color){
+            //get type and color
+            const color = layout[i][j].color
+            const type = layout[i][j].type
+            //reverse the multiplier grid for black pieces
+            const y = color === 'black' ? 7-i : i 
+            let multiplier = squareValues[type][y][j]
+            //apply the score
+            let score = pieceValues[type] * multiplier;
+            scores[color] += score
+          }
+        }
+      }
+      move.score = isComputer ? scores[computerColor] - scores[playerColor] : scores[playerColor] - scores[computerColor]
+      resolve(move)
+    })
+  }
+
+  findBestScore(moves){
+    let indecies = []
+    let highScore = -9999;
+    for (var i = 0; i < moves.length; i++){
+      if (moves[i].score > highScore){
+        indecies = [i] 
+        highScore = moves[i].score
+      } else if (moves[i].score === highScore){
+        indecies.push(i)
+      }
+    }
+    let index = indecies[Math.floor(Math.random() * indecies.length)]
+    return moves[index]
   }
 
   takeComputerMove(move){
